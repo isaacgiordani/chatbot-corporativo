@@ -1,0 +1,31 @@
+{
+  "name": "autoatende-chat-lambdas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:authorizer": "node build.mjs authorizer",
+    "build:connect": "node build.mjs connect",
+    "build:disconnect": "node build.mjs disconnect",
+    "build:message-persist": "node build.mjs message-persist",
+    "build:message-processor": "node build.mjs message-processor",
+    "check": "tsc --noEmit",
+    "test": "tsx --test authorizer/*.test.ts connect/*.test.ts message-persist/*.test.ts message-processor/*.test.ts",
+    "validate": "npm run check && npm test && npm run build"
+  },
+  "dependencies": {
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.896.0",
+    "@aws-sdk/client-dynamodb": "^3.896.0",
+    "@aws-sdk/lib-dynamodb": "^3.896.0",
+    "@aws-sdk/util-dynamodb": "^3.896.0",
+    "aws-jwt-verify": "^5.1.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
+    "@types/node": "^24.5.2",
+    "esbuild": "^0.25.10",
+    "tsx": "^4.20.5",
+    "typescript": "~5.8.3"
+  }
+}
