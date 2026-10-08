@@ -12,8 +12,6 @@ lambdas/                      # Lambdas WebSocket em TypeScript
   message-processor/          # consome o DynamoDB Stream e responde
 ```
 
-O material da aula permanece preservado em `site/material-aula-cognito/` e não participa do build da aplicação.
-
 ## Site
 
 O frontend inclui cadastro, confirmação de conta, login e recuperação de senha pelo Amazon Cognito, além da interface de chat e do adaptador WebSocket.
