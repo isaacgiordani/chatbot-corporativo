@@ -101,4 +101,4 @@ lambdas/dist/message-processor/index.js
 lambdas/dist/authorizer/index.js
 ```
 
-Não existe template SAM ou outro template de infraestrutura neste repositório. Os comandos de build e teste são exclusivamente locais e não criam recursos na AWS. Consulte `lambdas/README.md` para o contrato, variáveis de ambiente e orientação de autenticação com Cognito.
+Não existe template SAM neste repositório. O empacotamento das Lambdas é local; a implantação das funções e da API WebSocket é definida em `terraform/`. Consulte `lambdas/README.md` para o contrato, variáveis de ambiente e empacotamento, e `terraform/README.md` para o deploy da infraestrutura.

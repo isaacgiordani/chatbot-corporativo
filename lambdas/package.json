@@ -10,6 +10,7 @@
     "build:disconnect": "node build.mjs disconnect",
     "build:message-persist": "node build.mjs message-persist",
     "build:message-processor": "node build.mjs message-processor",
+    "package": "bash package.sh",
     "check": "tsc --noEmit",
     "test": "tsx --test authorizer/*.test.ts connect/*.test.ts message-persist/*.test.ts message-processor/*.test.ts",
     "validate": "npm run check && npm test && npm run build"

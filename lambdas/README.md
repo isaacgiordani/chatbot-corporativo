@@ -31,7 +31,7 @@ O nome da tabela não está fixado no código. Por exemplo:
 
 ```text
 CONNECTIONS_TABLE=valcann-dev-websocket-connections
-MESSAGES_TABLE=valcann-dev-messages
+MESSAGES_TABLE=valcann-dev-websocket-messages
 ```
 
 A tabela futura deve utilizar `connectionId` como chave primária e habilitar TTL no atributo `expiresAt`. O evento `$disconnect` é entregue em regime de melhor esforço pelo API Gateway; por isso o TTL serve como limpeza de segurança para conexões antigas.
@@ -57,6 +57,20 @@ dist/message-processor/index.js
 ```
 
 Todas as dependências usadas em execução são empacotadas em cada bundle. Não há template SAM e nenhum desses comandos acessa ou modifica a conta AWS.
+
+## Empacotar para deploy
+
+O script de pacote reproduz o fluxo de build e criação dos ZIPs para o Terraform. Ele gera um arquivo por função em `dist/`, contendo o bundle `index.js` na raiz do ZIP:
+
+```bash
+cd lambdas
+npm ci
+npm run package
+```
+
+O Terraform usa `dist/authorizer.zip`, `dist/connect.zip`, `dist/disconnect.zip`, `dist/message-persist.zip` e `dist/message-processor.zip` para criar/atualizar as funções. Os source maps `.map` não são incluídos nos pacotes de deploy; o JavaScript já contém as dependências empacotadas. Execute `npm run package` novamente após mudanças no código antes de planejar/aplicar o Terraform.
+
+O deploy Terraform cria o API Gateway WebSocket e conecta `authorizer`, `connect`, `disconnect` e `message-persist`. `message-processor` também é criado, mas o trigger do DynamoDB Stream será configurado quando as tabelas DynamoDB forem criadas.
 
 Para compilar apenas uma função:
 
@@ -160,7 +174,7 @@ O processador implementa resposta parcial de lote (`ReportBatchItemFailures`). O
 
 No DynamoDB, escolha **Create table**:
 
-- Table name: por exemplo `valcann-dev-messages`;
+- Table name: por exemplo `valcann-dev-websocket-messages`;
 - Partition key: `conversationId`, tipo String;
 - Sort key: `messageKey`, tipo String;
 - Table settings: `On-demand` é suficiente para o início.
@@ -206,7 +220,7 @@ Na role, anexe `AWSLambdaDynamoDBExecutionRole` para leitura do stream e acresce
 
 Na página da Lambda processadora, escolha **Add trigger → DynamoDB**:
 
-- DynamoDB table: `valcann-dev-messages`;
+- DynamoDB table: `valcann-dev-websocket-messages`;
 - Batch size: `10`;
 - Batch window: `0`;
 - Starting position: `Trim horizon` se a tabela for nova e vazia; caso use `Latest`, não grave mensagens até o trigger aparecer como habilitado;

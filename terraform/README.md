@@ -1,6 +1,6 @@
 # Terraform
 
-Esta configuração cria o bucket privado do site na região N. Virgínia (`us-east-1`), uma distribuição CloudFront chamada `chatbot-corporativo` e um Cognito User Pool com App Client público para a SPA. O nome do bucket é montado automaticamente como `<AccountId>-<env>-chatbot-corporativo-s3`, usando os valores de `dev.tfvars`; para o ambiente atual, será `651644924182-dev-chatbot-corporativo-s3`. O provider recusa credenciais de outra conta. O valor `VALCANN | TESTE` é mantido em `dev.tfvars`, mas a tag AWS converte `|` para `-` (`VALCANN - TESTE`) porque esse caractere não é aceito em tags por vários serviços AWS.
+Esta configuração cria o bucket privado do site na região N. Virgínia (`us-east-1`), uma distribuição CloudFront chamada `chatbot-corporativo`, um Cognito User Pool, uma API Gateway WebSocket e cinco funções Lambda. Quatro funções atendem às rotas WebSocket; `message-processor` será conectada ao stream DynamoDB em uma etapa posterior. O nome do bucket é montado automaticamente como `<AccountId>-<env>-chatbot-corporativo-s3`, usando os valores de `dev.tfvars`; para o ambiente atual, será `651644924182-dev-chatbot-corporativo-s3`. O provider recusa credenciais de outra conta. O valor `VALCANN | TESTE` é mantido em `dev.tfvars`, mas a tag AWS converte `|` para `-` (`VALCANN - TESTE`) porque esse caractere não é aceito em tags por vários serviços AWS.
 
 Os valores do ambiente de testes ficam em `dev.tfvars`. As credenciais temporárias ficam em `.env`, que é ignorado pelo Git. Na raiz do repositório, crie e preencha o arquivo local:
 
@@ -80,6 +80,38 @@ cd ../terraform
 ```
 
 Copie os valores para `VITE_COGNITO_USER_POOL_ID` e `VITE_COGNITO_USER_POOL_CLIENT_ID` em `site/.env`; a região está configurada como `us-east-1`. O arquivo `site/.env.example` mantém esses IDs vazios para não apontar para um pool diferente. Para desenvolvimento local, `npm run dev` inicia o Vite e não publica na AWS; reinicie-o depois de alterar o `.env`.
+
+## API Gateway WebSocket e Lambdas
+
+A API WebSocket `chatbot-corporativo` usa IPv4, stage `dev` e a expressão de seleção `$request.body.action` (a sintaxe do API Gateway inclui o `$`). As rotas `$connect`, `$disconnect`, `sendMessage` e `$default` são integradas às Lambdas. O authorizer Cognito protege `$connect` recebendo o token pela query string `token`. As cinco funções usam runtime Node.js 22.x e roles IAM separadas; o Terraform cria log groups com retenção de 14 dias.
+
+Antes do plano/aplicação, gere os bundles e ZIPs locais:
+
+```bash
+cd ../lambdas
+npm ci
+npm run package
+cd ../terraform
+./scripts/validate.sh
+```
+
+O `npm run package` transpila e empacota cada função em `lambdas/dist/<função>.zip`; o comando `zip` precisa estar instalado no sistema. Cada ZIP contém `index.js` na raiz; o bundle inclui as dependências em runtime. Depois de revisar o plano, aplique:
+
+```bash
+terraform apply -var-file=dev.tfvars
+```
+
+O Terraform implanta as cinco funções. `authorizer`, `connect`, `disconnect` e `message-persist` são conectadas à API; `message-processor` fica criada para receber o trigger DynamoDB Stream em uma etapa posterior. Como as tabelas ainda não foram provisionadas, as rotas que acessam DynamoDB não estarão operacionais até essa etapa.
+
+Obtenha a URL WebSocket e configure `VITE_WEBSOCKET_URL` em `site/.env`:
+
+```bash
+terraform output -raw websocket_api_url
+cd ../site
+nano .env
+```
+
+Após salvar a URL, gere novamente o frontend e publique-o pelo fluxo acima para incorporar o endpoint no build.
 
 ## Publicar o frontend
 

@@ -32,3 +32,18 @@ output "cognito_user_pool_client_id" {
   description = "ID público do App Client Cognito usado pela SPA."
   value       = aws_cognito_user_pool_client.site_spa.id
 }
+
+output "websocket_api_id" {
+  description = "ID da API WebSocket do chatbot."
+  value       = aws_apigatewayv2_api.websocket.id
+}
+
+output "websocket_api_url" {
+  description = "URL WSS da API WebSocket no stage configurado."
+  value       = "${aws_apigatewayv2_api.websocket.api_endpoint}/${aws_apigatewayv2_stage.websocket.name}"
+}
+
+output "websocket_lambda_function_names" {
+  description = "Nomes das funções Lambda do chatbot."
+  value       = { for name, function in aws_lambda_function.websocket : name => function.function_name }
+}
