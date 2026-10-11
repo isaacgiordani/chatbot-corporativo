@@ -6,3 +6,14 @@ dist
 .DS_Store
 *.log
 .sites-runtime
+
+# Terraform: estado, diretório de trabalho, planos e arquivos locais de override.
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

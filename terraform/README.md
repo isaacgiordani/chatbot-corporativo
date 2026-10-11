@@ -1,5 +1,7 @@
 # Terraform
 
+Para o procedimento completo, da preparação das credenciais à validação do site publicado, consulte o [guia de provisionamento do zero](../docs/PROVISIONAMENTO-DO-ZERO.md).
+
 Esta configuração cria o bucket privado do site na região N. Virgínia (`us-east-1`), uma distribuição CloudFront chamada `chatbot-corporativo`, um Cognito User Pool, uma API Gateway WebSocket, cinco funções Lambda e duas tabelas DynamoDB. Quatro funções atendem às rotas WebSocket; `message-processor` consome o stream da tabela de mensagens. O nome do bucket é montado automaticamente como `<AccountId>-<env>-chatbot-corporativo-s3`, usando os valores de `dev.tfvars`; para o ambiente atual, será `651644924182-dev-chatbot-corporativo-s3`. O provider recusa credenciais de outra conta. O valor `VALCANN | TESTE` é mantido em `dev.tfvars`, mas a tag AWS converte `|` para `-` (`VALCANN - TESTE`) porque esse caractere não é aceito em tags por vários serviços AWS.
 
 Os valores do ambiente de testes ficam em `dev.tfvars`. As credenciais temporárias ficam em `.env`, que é ignorado pelo Git. Na raiz do repositório, crie e preencha o arquivo local:
@@ -147,3 +149,13 @@ aws cloudfront create-invalidation \
 ```
 
 Como alternativa, `npm run deploy:s3` gera o build e publica usando a variável `AWS_S3_BUCKET`; esse fluxo aplica regras de cache e pode invalidar o CloudFront se `AWS_CLOUDFRONT_DISTRIBUTION_ID` estiver definida. O bucket continua privado e acessível pelo CloudFront via OAC. Não é necessário executar `npm run dev` para publicar.
+
+## Destruir o ambiente `dev`
+
+Para revisar um plano de destruição, conferir a conta AWS e remover o ambiente principal com confirmação explícita, use:
+
+```bash
+./scripts/destroy.sh
+```
+
+O script remove os objetos do bucket do site antes do Terraform, porque `force_destroy` está desativado. Isso também apaga usuários Cognito, mensagens DynamoDB e os demais recursos do ambiente. O bucket remoto de state é independente e fica preservado. Revise o plano e só confirme se pretende realmente apagar o ambiente. Consulte o guia de provisionamento para os passos de recriação.

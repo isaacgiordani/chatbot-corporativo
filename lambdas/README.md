@@ -1,5 +1,7 @@
 # Lambdas WebSocket da Valcann
 
+Para provisionar o ambiente completo em uma instalação nova, siga o [guia passo a passo](../docs/PROVISIONAMENTO-DO-ZERO.md).
+
 As funções estão organizadas como cinco unidades distintas:
 
 | Diretório | Rota esperada | Responsabilidade |

@@ -2,6 +2,8 @@
 
 Repositório do chatbot corporativo para atendimento de uma loja de veículos. O código está separado em dois projetos independentes:
 
+Para provisionar o ambiente AWS do zero, siga o [passo a passo de provisionamento](docs/PROVISIONAMENTO-DO-ZERO.md).
+
 ```text
 site/                         # SPA React + TypeScript
 lambdas/                      # Lambdas WebSocket em TypeScript
