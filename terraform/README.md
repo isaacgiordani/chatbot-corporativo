@@ -1,6 +1,6 @@
 # Terraform
 
-Esta configuração cria o bucket privado do site na região N. Virgínia (`us-east-1`). O nome é montado automaticamente como `<AccountId>-<env>-chatbot-corporativo-s3`, usando os valores de `dev.tfvars`; para o ambiente atual, será `651644924182-dev-chatbot-corporativo-s3`. O provider recusa credenciais de outra conta. O valor `VALCANN | TESTE` é mantido em `dev.tfvars`, mas a tag AWS converte `|` para `-` (`VALCANN - TESTE`) porque esse caractere não é aceito em tags por vários serviços AWS.
+Esta configuração cria o bucket privado do site na região N. Virgínia (`us-east-1`) e uma distribuição CloudFront chamada `chatbot-corporativo`. O nome do bucket é montado automaticamente como `<AccountId>-<env>-chatbot-corporativo-s3`, usando os valores de `dev.tfvars`; para o ambiente atual, será `651644924182-dev-chatbot-corporativo-s3`. O provider recusa credenciais de outra conta. O valor `VALCANN | TESTE` é mantido em `dev.tfvars`, mas a tag AWS converte `|` para `-` (`VALCANN - TESTE`) porque esse caractere não é aceito em tags por vários serviços AWS.
 
 Os valores do ambiente de testes ficam em `dev.tfvars`. As credenciais temporárias ficam em `.env`, que é ignorado pelo Git. Na raiz do repositório, crie e preencha o arquivo local:
 
@@ -52,17 +52,34 @@ O provider aceita apenas a conta `AccountId` configurada. Revise o plano do site
 terraform apply -var-file=dev.tfvars
 ```
 
-Confirme a operação quando o Terraform solicitar. A configuração não cria CloudFront nem habilita hospedagem pública de site estático; o bucket permanece privado.
+Confirme a operação quando o Terraform solicitar. O CloudFront lê o bucket privado por OAC; a política do bucket autoriza somente essa distribuição a ler objetos.
+
+## Distribuição CloudFront
+
+A distribuição padrão `chatbot-corporativo` usa o endpoint REST do bucket S3 privado como origem, sem prefixo de caminho, com `index.html` como documento raiz e sem regras de path adicionais. Não configura domínio próprio, WAF ou certificado personalizado. O domínio padrão `*.cloudfront.net` é fornecido pela AWS; HTTPS usa o certificado padrão do CloudFront e exige TLS 1.2 ou superior. A política de visualização está como `allow-all`, então HTTP também é aceito. O tráfego entre CloudFront e o bucket é assinado pelo OAC com SigV4.
+
+Após aplicar o Terraform, consulte o endereço e o ID da distribuição:
+
+```bash
+terraform output -raw cloudfront_distribution_domain_name
+terraform output -raw cloudfront_distribution_id
+```
 
 ## Publicar o frontend
 
-Depois de configurar separadamente o acesso privado, por exemplo com CloudFront e Origin Access Control, use o output do Terraform como bucket de destino:
+Para enviar um build já gerado, configure as credenciais AWS no terminal, volte à raiz do repositório e execute:
 
 ```bash
-export AWS_S3_BUCKET="$(terraform output -raw site_bucket_name)"
 cd ../site
-npm ci
-npm run deploy:s3
+./scripts/sync-s3.sh 651644924182 dev
 ```
 
-O script `deploy:s3` gera o build e sincroniza `site/dist/` com o bucket. O bucket privado não serve conteúdo diretamente ao navegador; configure CloudFront com Origin Access Control antes de esperar que o site fique acessível aos usuários.
+O script sincroniza `site/dist/` com `651644924182-dev-chatbot-corporativo-s3`. Ele não gera o build e não apaga arquivos do bucket. Se `dist/` não existir, gere o build antes:
+
+```bash
+npm ci
+npm run build
+./scripts/sync-s3.sh 651644924182 dev
+```
+
+Como alternativa, `npm run deploy:s3` gera o build e publica usando a variável `AWS_S3_BUCKET`; esse fluxo aplica regras de cache e pode invalidar o CloudFront se `AWS_CLOUDFRONT_DISTRIBUTION_ID` estiver definida. O bucket do site continua privado. Para servir o frontend aos usuários, configure CloudFront com Origin Access Control.
