@@ -26,7 +26,35 @@ if [[ ! -d "${DIST_DIR}" ]]; then
 fi
 
 BUCKET="${ACCOUNT_ID}-${ENVIRONMENT}-chatbot-corporativo-s3"
+TERRAFORM_DIR="$(cd -- "${SITE_DIR}/../terraform" && pwd)"
+DISTRIBUTION_ID="${AWS_CLOUDFRONT_DISTRIBUTION_ID:-}"
+
+if [[ -z "${DISTRIBUTION_ID}" ]]; then
+  if ! command -v terraform >/dev/null 2>&1; then
+    echo "Terraform não encontrado. Instale-o ou defina AWS_CLOUDFRONT_DISTRIBUTION_ID."
+    exit 1
+  fi
+
+  if ! DISTRIBUTION_ID="$(terraform -chdir="${TERRAFORM_DIR}" output -raw cloudfront_distribution_id 2>/dev/null)"; then
+    echo "Não foi possível obter cloudfront_distribution_id do state Terraform."
+    echo "Inicialize o Terraform ou defina AWS_CLOUDFRONT_DISTRIBUTION_ID."
+    exit 1
+  fi
+fi
+
+if [[ ! "${DISTRIBUTION_ID}" =~ ^[A-Z0-9]+$ ]]; then
+  echo "ID da distribuição CloudFront inválido: ${DISTRIBUTION_ID}"
+  exit 1
+fi
 
 echo "Sincronizando ${DIST_DIR} com s3://${BUCKET}..."
 aws s3 sync "${DIST_DIR}" "s3://${BUCKET}"
 echo "Sincronização concluída: s3://${BUCKET}"
+
+echo "Invalidando o cache da distribuição CloudFront ${DISTRIBUTION_ID}..."
+INVALIDATION="$(aws cloudfront create-invalidation \
+  --distribution-id "${DISTRIBUTION_ID}" \
+  --paths "/*" \
+  --query 'Invalidation.{Id:Id,Status:Status}' \
+  --output text)"
+printf 'Invalidação solicitada (ID e status): %s\n' "${INVALIDATION}"

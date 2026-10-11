@@ -25,6 +25,6 @@ export const appConfig = {
 
 if (cognitoConfigured) {
   Amplify.configure({
-    Auth: { Cognito: { userPoolId, userPoolClientId, loginWith: { email: true } } },
+    Auth: { Cognito: { userPoolId, userPoolClientId, loginWith: { username: true } } },
   })
 }
