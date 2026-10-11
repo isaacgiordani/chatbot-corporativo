@@ -1,6 +1,6 @@
 locals {
-  connections_table_name = "${var.client}-${var.env}-websocket-connections"
-  messages_table_name    = "${var.client}-${var.env}-websocket-messages"
+  connections_table_name = "${local.client_slug}-${var.env}-websocket-connections"
+  messages_table_name    = "${local.client_slug}-${var.env}-websocket-messages"
 }
 
 resource "aws_dynamodb_table" "connections" {

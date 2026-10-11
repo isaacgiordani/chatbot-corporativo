@@ -21,7 +21,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react'
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { appConfig } from './config'
 import {
   completePasswordReset,
@@ -41,22 +41,23 @@ const INITIAL_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
   content:
-    'Olá! Sou o assistente virtual da nossa loja. Posso ajudar com modelos, condições de financiamento, avaliação do seu veículo ou pós-venda. Por onde começamos?',
+    'Olá! Sou o assistente virtual. Posso ajudar com dúvidas, compartilhar informações e orientar você. O que gostaria de saber?',
   createdAt: new Date(),
 }
 
 const SUGGESTIONS = [
-  'Quero encontrar um veículo',
-  'Simular um financiamento',
-  'Avaliar meu carro usado',
+  'Tirar uma dúvida',
+  'Conhecer os serviços',
+  'Falar com a equipe',
 ]
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
-  const splitAt = appConfig.name.toLocaleLowerCase('pt-BR').startsWith('auto') ? 4 : appConfig.name.length
   return (
     <div className={`brand${compact ? ' brand--compact' : ''}`} aria-label={appConfig.name}>
-      <span className="brand-mark" aria-hidden="true"><span /></span>
-      <span className="brand-name">{appConfig.name.slice(0, splitAt)}<span>{appConfig.name.slice(splitAt)}</span></span>
+      <span className="brand-mark" aria-hidden="true">
+        <Bot size={24} strokeWidth={2} />
+      </span>
+      <span className="brand-name">{appConfig.name}</span>
     </div>
   )
 }
@@ -235,7 +236,7 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (user: AppUser) => 
         <div className="login-card">
           {mode === 'login' ? (
             <>
-              <div className="eyebrow"><span /> Atendimento inteligente</div>
+              <div className="eyebrow"><span /> Assistente virtual</div>
               <h1>Que bom ter você<br />de volta.</h1>
               <p className="intro">Entre para continuar sua conversa com o nosso assistente.</p>
               <form onSubmit={handleLogin}>
@@ -362,20 +363,27 @@ function LoginScreen({ onAuthenticated }: { onAuthenticated: (user: AppUser) => 
         <div className="visual-glow visual-glow-two" />
         <div className="visual-content">
           <div className="availability"><span /> Disponível agora</div>
-          <blockquote>“Escolher seu próximo carro ficou mais simples.”</blockquote>
-          <p>Informações sobre veículos, financiamento e pós-venda, em uma conversa rápida e segura.</p>
+          <blockquote>“Boas respostas começam com uma boa conversa.”</blockquote>
+          <p>Tire dúvidas, explore informações e encontre o próximo passo em uma conversa simples e segura.</p>
           <div className="assistant-preview">
-            <div className="assistant-icon"><ShieldCheck size={21} /></div>
-            <div><span>Assistente {appConfig.name}</span><strong>Olá! Como posso ajudar você hoje?</strong></div>
+            <div className="assistant-icon"><Bot size={21} /></div>
+            <div><span>{appConfig.name}</span><strong>Olá! Como posso ajudar você hoje?</strong></div>
             <span className="typing"><i /><i /><i /></span>
           </div>
         </div>
-        <div className="vehicle-lines" aria-hidden="true">
-          <svg viewBox="0 0 820 320" role="presentation">
-            <path d="M82 226c30-52 69-81 135-92l95-16c58-10 113-14 177-7l93 10c31 4 61 16 87 35l59 45c13 10 20 26 20 42v17H73l9-34Z" />
-            <path d="M236 132l54 69M490 111l62 91M302 118h177M156 201h511" />
-            <circle cx="209" cy="254" r="45" /><circle cx="624" cy="254" r="45" />
+        <div className="conversation-art" aria-hidden="true">
+          <svg className="conversation-art-ribbons" viewBox="0 0 900 430" fill="none" preserveAspectRatio="xMidYMid slice">
+            <path className="conversation-ribbon conversation-ribbon--blue" d="M-30 310C117 310 116 97 281 130C418 157 342 330 507 300C639 276 663 111 934 104" />
+            <path className="conversation-ribbon conversation-ribbon--cyan" d="M-41 353C120 353 161 187 279 189C405 191 403 353 552 354C685 355 740 218 943 208" />
+            <path className="conversation-ribbon conversation-ribbon--violet" d="M-24 268C115 268 157 50 316 70C473 90 462 245 579 250C719 257 753 139 934 150" />
+            <circle className="conversation-orb conversation-orb--one" cx="280" cy="189" r="8" />
+            <circle className="conversation-orb conversation-orb--two" cx="552" cy="354" r="6" />
+            <circle className="conversation-orb conversation-orb--three" cx="579" cy="250" r="5" />
           </svg>
+          <span className="conversation-word conversation-word--one">escutar</span>
+          <span className="conversation-word conversation-word--two">perguntar</span>
+          <span className="conversation-word conversation-word--three">responder</span>
+          <span className="conversation-caption">toda conversa abre caminhos</span>
         </div>
       </aside>
     </main>
@@ -390,22 +398,20 @@ function connectionLabel(state: ConnectionState) {
 }
 
 function mockReply(message: string) {
-  const normalized = message.toLocaleLowerCase('pt-BR')
-  if (normalized.includes('financ')) return 'Posso ajudar com a simulação. Para começar, qual faixa de valor do veículo e quanto você pretende dar de entrada?'
-  if (normalized.includes('usado') || normalized.includes('avali')) return 'Claro! Para uma estimativa inicial, me diga o modelo, o ano e a quilometragem aproximada do seu veículo.'
-  if (normalized.includes('suv')) return 'Ótima escolha. Você prefere um SUV compacto para uso urbano ou um modelo maior, com mais espaço para a família?'
-  return 'Entendi. Para indicar as melhores opções, você pode me contar um pouco mais sobre o que procura no seu próximo veículo?'
+  if (!message.trim()) return 'Olá! Como posso ajudar você hoje?'
+  return 'Entendi. Conte um pouco mais para que eu possa orientar você.'
 }
 
 function ChatScreen({ user, onLogout }: { user: AppUser; onLogout: () => Promise<void> }) {
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE])
   const [draft, setDraft] = useState('')
+  const [sendError, setSendError] = useState('')
   const [isAssistantTyping, setIsAssistantTyping] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const conversationId = useMemo(() => crypto.randomUUID(), [])
+  const [conversationId, setConversationId] = useState(() => crypto.randomUUID())
 
   const { state: connectionState, send: sendToSocket, reconnect } = useChatSocket({
     conversationId,
@@ -422,23 +428,35 @@ function ChatScreen({ user, onLogout }: { user: AppUser; onLogout: () => Promise
 
   function newConversation() {
     setMessages([{ ...INITIAL_MESSAGE, id: crypto.randomUUID(), createdAt: new Date() }])
+    setConversationId(crypto.randomUUID())
     setDraft('')
+    setSendError('')
     setSidebarOpen(false)
   }
 
-  function submitMessage(content: string) {
+  function submitMessage(content: string): boolean {
     const cleanContent = content.trim()
-    if (!cleanContent || isAssistantTyping) return
-    setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'user', content: cleanContent, createdAt: new Date() }])
-    setDraft('')
-    const sent = sendToSocket(cleanContent)
-    setIsAssistantTyping(true)
-    if (!sent) {
+    if (!cleanContent || isAssistantTyping) return false
+    setSendError('')
+    if (user.id === 'demo-user') {
+      setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'user', content: cleanContent, createdAt: new Date() }])
+      setDraft('')
+      setIsAssistantTyping(true)
       window.setTimeout(() => {
         setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', content: mockReply(cleanContent), createdAt: new Date() }])
         setIsAssistantTyping(false)
       }, 850)
+      return true
     }
+
+    if (!sendToSocket(cleanContent)) {
+      setSendError('Mensagem não enviada. Aguarde a conexão com o assistente e tente novamente.')
+      return false
+    }
+    setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'user', content: cleanContent, createdAt: new Date() }])
+    setDraft('')
+    setIsAssistantTyping(true)
+    return true
   }
 
   useEffect(() => {
@@ -448,7 +466,7 @@ function ChatScreen({ user, onLogout }: { user: AppUser; onLogout: () => Promise
     void Promise.resolve(document.modelContext.registerTool({
       name: 'send_support_message',
       title: 'Enviar mensagem ao suporte',
-      description: 'Envia uma nova mensagem na conversa visível com o assistente da loja de veículos.',
+      description: 'Envia uma nova mensagem na conversa visível com o assistente virtual.',
       inputSchema: {
         type: 'object',
         properties: { message: { type: 'string', minLength: 1, maxLength: 4000 } },
@@ -463,7 +481,7 @@ function ChatScreen({ user, onLogout }: { user: AppUser; onLogout: () => Promise
         if (typeof message !== 'string' || !message.trim()) throw new Error('A mensagem é obrigatória.')
         if (message.length > 4000) throw new Error('A mensagem deve ter no máximo 4.000 caracteres.')
         if (isAssistantTyping) throw new Error('Aguarde a resposta atual antes de enviar outra mensagem.')
-        submitMessage(message)
+        if (!submitMessage(message)) throw new Error('A mensagem não foi enviada. Confira a conexão com o assistente.')
         return { status: 'sent', conversationId }
       },
     }, { signal: lifecycle.signal })).catch(() => undefined)
@@ -503,11 +521,11 @@ function ChatScreen({ user, onLogout }: { user: AppUser; onLogout: () => Promise
           <span className="sidebar-label">Hoje</span>
           <button className="conversation-item conversation-item--active" type="button">
             <MessageSquareText size={18} />
-            <span><strong>Atendimento sobre veículos</strong><small>{messages.at(-1)?.content || 'Nova conversa'}</small></span>
+            <span><strong>Conversa inicial</strong><small>{messages.at(-1)?.content || 'Nova conversa'}</small></span>
           </button>
         </nav>
         <div className="sidebar-footer">
-          <div className="sidebar-help"><span><CircleHelp size={18} /></span><div><strong>Precisa de atendimento humano?</strong><small>Peça para falar com um consultor</small></div></div>
+          <div className="sidebar-help"><span><CircleHelp size={18} /></span><div><strong>Precisa de mais ajuda?</strong><small>Entre em contato com nossa equipe</small></div></div>
           <p>Suas conversas são protegidas e tratadas com segurança.</p>
         </div>
       </aside>
@@ -566,11 +584,12 @@ function ChatScreen({ user, onLogout }: { user: AppUser; onLogout: () => Promise
         </div>
 
         <div className="composer-wrap">
+          {sendError && <div className="form-feedback form-feedback--error send-error" role="alert">{sendError}</div>}
           <form className="composer" onSubmit={handleSubmit}>
             <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleComposerKeyDown} placeholder="Digite sua mensagem…" aria-label="Mensagem" rows={1} />
             <button type="submit" aria-label="Enviar mensagem" disabled={!draft.trim() || isAssistantTyping}><Send size={19} /></button>
           </form>
-          <p>O assistente pode cometer erros. Confirme informações importantes com um consultor.</p>
+          <p>O assistente pode cometer erros. Confirme informações importantes com nossa equipe.</p>
         </div>
       </section>
     </main>

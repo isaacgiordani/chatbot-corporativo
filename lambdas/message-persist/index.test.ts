@@ -7,7 +7,7 @@ test('creates a chronologically sortable message item for DynamoDB', () => {
     request: {
       action: 'sendMessage',
       conversationId: 'conversation-1',
-      message: 'Quero encontrar um SUV',
+      message: 'Como faço para alterar meus dados?',
     },
     connection: { conversationId: 'conversation-1', userId: 'user-1' },
     connectionId: 'connection-1',
@@ -23,7 +23,7 @@ test('creates a chronologically sortable message item for DynamoDB', () => {
     messageKey: '2026-10-08T15:00:00.000Z#message-1',
     messageId: 'message-1',
     role: 'user',
-    content: 'Quero encontrar um SUV',
+    content: 'Como faço para alterar meus dados?',
     status: 'RECEIVED',
     createdAt: '2026-10-08T15:00:00.000Z',
     createdAtEpoch: 1791471600,

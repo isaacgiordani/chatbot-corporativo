@@ -1,7 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="16" fill="#0a1220"/>
-  <path d="M14 37h36l-4-12a6 6 0 0 0-6-4H24a6 6 0 0 0-6 4l-4 12Z" fill="#1f6fff"/>
-  <path d="M12 38a5 5 0 0 1 5-5h30a5 5 0 0 1 5 5v7H12v-7Z" fill="#fff"/>
-  <circle cx="21" cy="44" r="5" fill="#0a1220"/>
-  <circle cx="43" cy="44" r="5" fill="#0a1220"/>
+  <defs>
+    <linearGradient id="tile" x1="8" y1="7" x2="57" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3977d1"/>
+      <stop offset="1" stop-color="#234da8"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="17" fill="url(#tile)"/>
+  <g transform="translate(18 18) scale(1.17)" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 8V4H8"/>
+    <rect width="16" height="12" x="4" y="8" rx="2"/>
+    <path d="M2 14h2m16 0h2m-7-1v2m-6-2v2"/>
+  </g>
 </svg>

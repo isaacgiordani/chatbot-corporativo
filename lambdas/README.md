@@ -1,4 +1,4 @@
-# Lambdas WebSocket da Valcann
+# Lambdas WebSocket do Assistente
 
 Para provisionar o ambiente completo em uma instalação nova, siga o [guia passo a passo](../docs/PROVISIONAMENTO-DO-ZERO.md).
 
@@ -12,7 +12,7 @@ As funções estão organizadas como cinco unidades distintas:
 | `message-persist/` | `sendMessage` e `$default` | Valida e persiste a mensagem |
 | `message-processor/` | DynamoDB Stream | Processa o item salvo e responde pelo WebSocket |
 
-O processador ainda não chama o Bedrock. Por enquanto, consome registros `INSERT` do stream e devolve uma confirmação contendo o texto persistido.
+O processador ainda não chama o Bedrock. Por enquanto, consome registros `INSERT` do stream e devolve uma confirmação genérica: “Obrigado pela mensagem! Como posso ajudar?”.
 
 O fluxo foi validado no site publicado: após autenticar e enviar uma mensagem, a interface recebe a resposta fixa do processador. A validação cobre a conexão WebSocket, o salvamento da mensagem, o acionamento pelo DynamoDB Stream e o callback para o cliente; a resposta ainda não é gerada por um modelo de IA.
 
@@ -34,11 +34,11 @@ Use `.env.example` como referência. O Terraform define essas variáveis em cada
 Os nomes das tabelas são definidos por variáveis de ambiente e provisionados pelo Terraform. No ambiente `dev`:
 
 ```text
-CONNECTIONS_TABLE=valcann-dev-websocket-connections
-MESSAGES_TABLE=valcann-dev-websocket-messages
+CONNECTIONS_TABLE=assistente-dev-websocket-connections
+MESSAGES_TABLE=assistente-dev-websocket-messages
 ```
 
-A tabela `valcann-dev-websocket-connections` usa `connectionId` como partition key e TTL no atributo `expiresAt`. A tabela `valcann-dev-websocket-messages` usa `messageId` como partition key e mantém DynamoDB Stream com imagem `NEW_IMAGE`. O evento `$disconnect` é entregue em regime de melhor esforço pelo API Gateway; por isso o TTL serve como limpeza de segurança para conexões antigas.
+A tabela `assistente-dev-websocket-connections` usa `connectionId` como partition key e TTL no atributo `expiresAt`. A tabela `assistente-dev-websocket-messages` usa `messageId` como partition key e mantém DynamoDB Stream com imagem `NEW_IMAGE`. O evento `$disconnect` é entregue em regime de melhor esforço pelo API Gateway; por isso o TTL serve como limpeza de segurança para conexões antigas.
 
 ## Build e testes
 
@@ -94,7 +94,7 @@ O frontend envia:
 {
   "action": "sendMessage",
   "conversationId": "uuid-da-conversa",
-  "message": "Quero encontrar um SUV"
+  "message": "Como faço para alterar meus dados?"
 }
 ```
 
@@ -103,12 +103,12 @@ O `message-persist` salva o item e o stream aciona o `message-processor`, que re
 ```json
 {
   "type": "assistant.message",
-  "content": "Sua mensagem foi recebida e o código será alterado depois. Texto salvo: \"Quero encontrar um SUV\"",
+  "content": "Obrigado pela mensagem! Como posso ajudar?",
   "conversationId": "uuid-da-conversa",
   "requestId": "id-da-requisicao",
   "savedMessage": {
     "messageId": "uuid-da-mensagem",
-    "content": "Quero encontrar um SUV",
+    "content": "Preciso de ajuda com uma dúvida",
     "status": "RECEIVED"
   }
 }
@@ -174,11 +174,11 @@ As instruções desta seção são apenas para uma implantação inteiramente ma
 
 ### 1. Criar as tabelas manualmente (somente se não usar Terraform)
 
-Na tabela `valcann-dev-websocket-connections`, use `connectionId` (String) como partition key e habilite TTL em `expiresAt`.
+Na tabela `assistente-dev-websocket-connections`, use `connectionId` (String) como partition key e habilite TTL em `expiresAt`.
 
 No DynamoDB, escolha **Create table**:
 
-- Table name: por exemplo `valcann-dev-websocket-messages`;
+- Table name: por exemplo `assistente-dev-websocket-messages`;
 - Partition key: `messageId`, tipo String;
 - Table settings: `On-demand` é suficiente para o início.
 
@@ -222,7 +222,7 @@ Na role conceda `dynamodb:DescribeStream`, `dynamodb:GetRecords`, `dynamodb:GetS
 
 Na página da Lambda processadora, escolha **Add trigger → DynamoDB**:
 
-- DynamoDB table: `valcann-dev-websocket-messages`;
+- DynamoDB table: `assistente-dev-websocket-messages`;
 - Batch size: `10`;
 - Batch window: `0`;
 - Starting position: `Latest` (configurado pelo Terraform);

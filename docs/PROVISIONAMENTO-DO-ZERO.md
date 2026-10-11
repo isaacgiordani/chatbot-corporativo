@@ -1,6 +1,6 @@
 # Provisionamento do ambiente do zero
 
-Este guia provisiona do zero o ambiente `dev` da Valcann para os recursos deste projeto. Ele cria o bucket de state, o site privado com CloudFront, o Cognito, a API WebSocket, cinco Lambdas e as tabelas DynamoDB. A resposta do chat ainda é fixa; a integração com Bedrock não está incluída.
+Este guia provisiona do zero o ambiente `dev` para o cliente configurado em `terraform/dev.tfvars`. O valor atual da variável `client` é `Assistente`. Ele cria o bucket de state, o site privado com CloudFront, o Cognito, a API WebSocket, cinco Lambdas e as tabelas DynamoDB. A resposta do chat ainda é fixa; a integração com Bedrock não está incluída.
 
 ## 1. Pré-requisitos
 
@@ -26,6 +26,8 @@ aws sts get-caller-identity
 Preencha `terraform/.env` com credenciais temporárias, sem compartilhar ou enviar o arquivo ao Git. Confirme que `Account` no resultado de `aws sts get-caller-identity` é `651644924182`. Se a sessão expirar durante o processo, obtenha novas credenciais e repita `source terraform/.env`.
 
 As variáveis de infraestrutura do ambiente de testes estão em `terraform/dev.tfvars`. Revise-as antes de começar. O backend e os nomes de recursos atuais também estão configurados para essa conta e ambiente.
+
+O valor atual de `client` é `Assistente`; ele determina parte dos nomes das Lambdas e das tabelas DynamoDB. Alterar `client` pode levar o Terraform a substituir as tabelas e apagar mensagens/conexões. Antes de aplicar uma mudança desse tipo em ambiente existente, revise o plano e faça backup dos dados.
 
 ## 2. Criar o bucket remoto do state (bootstrap)
 
@@ -92,7 +94,7 @@ Preencha no `site/.env`:
 
 | Variável | Valor |
 | --- | --- |
-| `VITE_APP_NAME` | `Valcann` |
+| `VITE_CLIENT_NAME` | `Assistente` |
 | `VITE_AWS_REGION` | `us-east-1` |
 | `VITE_COGNITO_USER_POOL_ID` | Output `cognito_user_pool_id` |
 | `VITE_COGNITO_USER_POOL_CLIENT_ID` | Output `cognito_user_pool_client_id` |
@@ -109,12 +111,15 @@ Gere e publique o site primeiro (próxima etapa), depois abra o domínio CloudFr
 
 ## 7. Gerar e publicar o frontend
 
-Ainda em `site/`, gere o site estático e sincronize-o com o bucket privado. O script também solicita a invalidação do cache CloudFront:
+Execute o bloco a partir da raiz do repositório. `npm ci` e `npm run build` rodam dentro de `site/`; depois o terminal volta à raiz para chamar o script de sync, que também solicita a invalidação do cache CloudFront:
 
 ```bash
+cd ~/Documentos/Git/chatbot-corporativo
+cd site
 npm ci
 npm run build
-./scripts/sync-s3.sh 651644924182 dev
+cd ..
+./site/scripts/sync-s3.sh 651644924182 dev
 ```
 
 A invalidação é assíncrona. Aguarde alguns minutos e abra o domínio CloudFront, sem acrescentar caminho. `index.html` é o documento raiz da distribuição.
@@ -144,9 +149,11 @@ terraform apply -var-file=dev.tfvars
 Se as alterações forem apenas no frontend, não é necessário reaplicar o Terraform: atualize `site/.env` se necessário, gere o build e sincronize os arquivos:
 
 ```bash
+cd ~/Documentos/Git/chatbot-corporativo
 cd site
 npm run build
-./scripts/sync-s3.sh 651644924182 dev
+cd ..
+./site/scripts/sync-s3.sh 651644924182 dev
 ```
 
 ## Destruir e recriar o ambiente
@@ -183,5 +190,5 @@ Revise o plano do bootstrap após a importação. O bucket de state contém o st
 - **Credenciais inválidas ou conta incorreta:** atualize as credenciais temporárias em `terraform/.env`, execute `source terraform/.env` e confira `aws sts get-caller-identity`.
 - **Bucket de state já existe, mas o bootstrap tenta criá-lo:** preserve o state local `terraform/state-bootstrap/terraform.tfstate`. Se ele foi perdido, pare e importe o bucket existente no state do bootstrap antes de aplicar; não tente recriá-lo.
 - **Terraform informa que o bucket de state não existe:** rode `./scripts/bootstrap.sh` em `terraform/` antes de `./scripts/validate.sh`.
-- **O site mostra configuração antiga:** confirme `site/.env`, rode novamente `npm run build` e `./scripts/sync-s3.sh 651644924182 dev`; aguarde a invalidação CloudFront.
+- **O site mostra configuração antiga:** confirme `site/.env`, rode `npm run build` dentro de `site/`, volte à raiz do repositório e execute `./site/scripts/sync-s3.sh 651644924182 dev`; aguarde a invalidação CloudFront.
 - **A mensagem não recebe resposta:** verifique o status **Conectado**, confirme `VITE_WEBSOCKET_URL`, `VITE_COGNITO_USER_POOL_ID` e `VITE_COGNITO_USER_POOL_CLIENT_ID`, refaça build/sync após alterações e confira logs das Lambdas no CloudWatch.

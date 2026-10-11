@@ -6,8 +6,8 @@ const websocketUrl = import.meta.env.VITE_WEBSOCKET_URL?.trim() || ''
 const cognitoConfigured = Boolean(userPoolId && userPoolClientId)
 
 export const appConfig = {
-  name: import.meta.env.VITE_APP_NAME?.trim() || 'Valcann',
-  demoEnabled: import.meta.env.VITE_ENABLE_DEMO_MODE !== 'false',
+  name: import.meta.env.VITE_CLIENT_NAME?.trim() || 'Assistente',
+  demoEnabled: import.meta.env.VITE_ENABLE_DEMO_MODE === 'true',
   cognito: {
     isConfigured: cognitoConfigured,
     region: import.meta.env.VITE_AWS_REGION?.trim() || 'us-east-1',
@@ -15,7 +15,7 @@ export const appConfig = {
     userPoolClientId,
   },
   websocket: {
-    isConfigured: /^wss?:\/\//.test(websocketUrl),
+    isConfigured: /^wss:\/\//.test(websocketUrl),
     url: websocketUrl,
     action: import.meta.env.VITE_WEBSOCKET_ACTION?.trim() || 'sendMessage',
     // This is only the query-string key. The value always comes from the Cognito session.

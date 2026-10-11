@@ -17,8 +17,9 @@ export interface AppUser {
   name?: string
 }
 
-const TEMPORARY_SESSION_KEY = 'valcann:temporary-session'
-const ACTIVE_TAB_KEY = 'valcann:active-tab'
+const CLIENT_NAMESPACE = appConfig.name.toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '-')
+const TEMPORARY_SESSION_KEY = `${CLIENT_NAMESPACE}:temporary-session`
+const ACTIVE_TAB_KEY = `${CLIENT_NAMESPACE}:active-tab`
 
 function userFromToken(userId: string, fallbackEmail: string, payload?: Record<string, unknown>): AppUser {
   return {

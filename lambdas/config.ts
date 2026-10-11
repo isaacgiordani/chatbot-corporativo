@@ -15,7 +15,7 @@ export const config = {
   get cognitoUserPoolId() { return required('COGNITO_USER_POOL_ID') },
   get cognitoUserPoolClientId() { return required('COGNITO_USER_POOL_CLIENT_ID') },
   connectionsTtlHours: positiveInteger(process.env.CONNECTIONS_TTL_HOURS, 24),
-  fixedResponse: process.env.FIXED_RESPONSE?.trim() || 'Sua mensagem foi recebida e o código será alterado depois.',
+  fixedResponse: process.env.FIXED_RESPONSE?.trim() || 'Obrigado pela mensagem! Como posso ajudar?',
   callbackEndpoint: process.env.WEBSOCKET_CALLBACK_ENDPOINT?.trim() || '',
   authorizerQueryParam: process.env.AUTH_TOKEN_QUERY_PARAM?.trim() || 'token',
 }

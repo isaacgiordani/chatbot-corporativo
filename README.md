@@ -1,6 +1,6 @@
-# Valcann Chat
+# Assistente
 
-Repositório do chatbot corporativo para atendimento de uma loja de veículos. O código está separado em dois projetos independentes:
+Repositório do chatbot corporativo. O nome apresentado e os prefixos de recursos são configurados pela variável `client`, atualmente definida como `Assistente` em `terraform/dev.tfvars`. O código está separado em dois projetos independentes:
 
 Para provisionar o ambiente AWS do zero, siga o [passo a passo de provisionamento](docs/PROVISIONAMENTO-DO-ZERO.md).
 
@@ -23,6 +23,7 @@ cd site
 cp .env.example .env
 npm ci
 npm run dev
+cd ..
 ```
 
 `npm run dev` inicia o servidor local do Vite para desenvolvimento e visualização na máquina; ele não publica arquivos na AWS. O frontend lê a configuração Cognito de `site/.env`. Após criar o User Pool, preencha `VITE_COGNITO_USER_POOL_ID` e `VITE_COGNITO_USER_POOL_CLIENT_ID` com os outputs do Terraform. Reinicie `npm run dev` para aplicar mudanças no `.env` durante o desenvolvimento.
@@ -34,6 +35,7 @@ cd site
 npm ci
 npm audit
 npm run build
+cd ..
 ```
 
 O resultado fica em `site/dist/`. As variáveis de `site/.env`, incluindo os IDs do Cognito, são incorporadas ao build; gere um novo build depois de alterar o `.env`.
@@ -42,8 +44,10 @@ Para publicar alterações, configure as credenciais AWS, gere o build e sincron
 
 ```bash
 cd site
+npm ci
 npm run build
-./scripts/sync-s3.sh 651644924182 dev
+cd ..
+./site/scripts/sync-s3.sh 651644924182 dev
 ```
 
 O script monta o bucket como `<AccountId>-<env>-chatbot-corporativo-s3`, envia os arquivos de `site/dist/` sem apagar objetos existentes e solicita a invalidação `/*` no CloudFront. Ele busca o ID pelo output `cloudfront_distribution_id` do Terraform; também é possível definir `AWS_CLOUDFRONT_DISTRIBUTION_ID`. As credenciais AWS precisam permitir upload no S3 e criar invalidações. A invalidação é assíncrona e pode levar alguns minutos. O comando manual abaixo serve para solicitar outra invalidação, se necessário:
@@ -72,6 +76,7 @@ npm audit fix
 npm ci
 npm audit
 npm run build
+cd ..
 ```
 
 Confirme que a auditoria termina com `found 0 vulnerabilities` e que o build passa. Evite `npm audit fix --force` sem revisar as mudanças, pois ele pode instalar versões incompatíveis.
@@ -83,6 +88,7 @@ cd site
 npm install-scripts approve esbuild
 npm ci
 npm run build
+cd ..
 ```
 
 Essa aprovação fica registrada em `site/package.json`. Se o npm informar que `tsc` não foi encontrado, confirme que está em `site/` e rode `npm ci`. Se um script aprovado falhar com `EPERM` ao executar um binário, tente os mesmos comandos fora de um ambiente que bloqueie a execução de subprocessos; não é necessário usar `sudo`.

@@ -1,5 +1,6 @@
 locals {
-  lambda_base_name = "${var.client}-${var.env}-chatbot-corporativo"
+  client_slug      = lower(replace(var.client, " ", "-"))
+  lambda_base_name = "${local.client_slug}-${var.env}-chatbot-corporativo"
 
   lambda_functions = {
     authorizer = {
@@ -34,7 +35,7 @@ locals {
       timeout = 30
       environment = {
         CONNECTIONS_TABLE = local.connections_table_name
-        FIXED_RESPONSE    = "Sua mensagem foi recebida e o código será alterado depois."
+        FIXED_RESPONSE    = "Obrigado pela mensagem! Como posso ajudar?"
       }
     }
   }

@@ -16,6 +16,8 @@ cd terraform
 
 No `.env`, preencha `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_SESSION_TOKEN` com credenciais temporárias da role de testes. O arquivo `.env.example` contém apenas campos vazios.
 
+O valor atual de `client` em `dev.tfvars` é `Assistente`. Ele compõe os nomes das Lambdas e das tabelas DynamoDB, usando o formato minúsculo `assistente`. Alterar esse valor pode fazer o Terraform substituir esses recursos. Em particular, substituir as tabelas DynamoDB pode apagar conexões e mensagens existentes. Sempre revise o plano e faça backup/exportação dos dados antes de aplicar uma troca de cliente em um ambiente com dados.
+
 ## 1. Bootstrap do bucket de state
 
 O bootstrap fica separado da configuração principal e mantém seu próprio state local para evitar dependência circular. Execute-o na primeira configuração ou quando precisar reconciliar alterações na configuração do bucket:
@@ -105,7 +107,7 @@ terraform apply -var-file=dev.tfvars
 
 O Terraform implanta as cinco funções. `authorizer` valida a conexão em `$connect`; `connect` e `disconnect` atendem às rotas de ciclo de vida; `message-persist` atende `sendMessage` e `$default`; `message-processor` recebe os eventos do DynamoDB Stream. O stage usa o valor de `env` do arquivo tfvars (`dev` no ambiente atual).
 
-As tabelas são `valcann-dev-websocket-connections` (`connectionId` String como partition key, TTL em `expiresAt`) e `valcann-dev-websocket-messages` (`messageId` String como partition key, stream `NEW_IMAGE`). O Terraform também configura o mapeamento do stream para a Lambda `message-processor`. Ambas usam capacidade sob demanda e criptografia padrão do DynamoDB.
+As tabelas são `assistente-dev-websocket-connections` (`connectionId` String como partition key, TTL em `expiresAt`) e `assistente-dev-websocket-messages` (`messageId` String como partition key, stream `NEW_IMAGE`). O Terraform também configura o mapeamento do stream para a Lambda `message-processor`. Ambas usam capacidade sob demanda e criptografia padrão do DynamoDB.
 
 As permissões de execução das Lambdas são separadas por função: todas escrevem logs apenas no próprio log group do CloudWatch; `authorizer` não recebe permissões adicionais; `connect` pode gravar na tabela de conexões; `disconnect` pode excluir itens dessa tabela; `message-persist` pode ler/excluir conexões e gravar mensagens, além de gerenciar conexões na API WebSocket para remover conexões inválidas; `message-processor` pode excluir conexões inválidas, ler o stream da tabela de mensagens e postar respostas na API WebSocket. As permissões do stream incluem `DescribeStream`, `GetRecords`, `GetShardIterator` e `ListStreams` e são limitadas ao stream da tabela de mensagens.
 
@@ -131,12 +133,15 @@ Abra o domínio CloudFront, autentique-se e envie uma mensagem. O frontend deve 
 
 ## Publicar o frontend
 
-Para publicar alterações, configure as credenciais AWS no terminal e gere o build com os valores atuais de `site/.env`:
+Para publicar alterações, configure as credenciais AWS no terminal e execute o bloco a partir da raiz do repositório. `npm ci` e `npm run build` rodam dentro de `site/`; o sync roda na raiz usando os valores atuais de `site/.env`:
 
 ```bash
-cd ../site
+cd ~/Documentos/Git/chatbot-corporativo
+cd site
+npm ci
 npm run build
-./scripts/sync-s3.sh 651644924182 dev
+cd ..
+./site/scripts/sync-s3.sh 651644924182 dev
 ```
 
 O script envia `site/dist/` para `651644924182-dev-chatbot-corporativo-s3`, não gera o build nem apaga arquivos do bucket, e solicita automaticamente a invalidação `/*` do CloudFront. Ele obtém a distribuição pelo output Terraform `cloudfront_distribution_id`; alternativamente, defina `AWS_CLOUDFRONT_DISTRIBUTION_ID`. As credenciais AWS precisam permitir escrita no bucket e criação de invalidações. A invalidação é assíncrona e pode levar alguns minutos. O comando manual abaixo serve para solicitar outra invalidação, se necessário:

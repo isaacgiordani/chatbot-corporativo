@@ -18,11 +18,11 @@ test('parses the frontend WebSocket contract', () => {
   assert.deepEqual(parseChatRequest(JSON.stringify({
     action: 'sendMessage',
     conversationId: 'conversation-1',
-    message: '  Quero um SUV  ',
+    message: '  Como faço para alterar meus dados?  ',
   })), {
     action: 'sendMessage',
     conversationId: 'conversation-1',
-    message: 'Quero um SUV',
+    message: 'Como faço para alterar meus dados?',
   })
 })
 
@@ -30,24 +30,24 @@ test('rejects messages without content', () => {
   assert.throws(() => parseChatRequest('{"action":"sendMessage"}'), /message é obrigatório/)
 })
 
-test('creates an acknowledgement containing the persisted text', () => {
+test('creates a generic acknowledgement and returns the persisted message separately', () => {
   const payload = receivedMessagePayload({
     conversationId: 'conversation-1',
     messageKey: '2026-10-08T15:00:00.000Z#message-1',
     messageId: 'message-1',
     role: 'user',
-    content: 'Quero encontrar um SUV',
+    content: 'Preciso de ajuda com uma dúvida',
     status: 'RECEIVED',
     createdAt: '2026-10-08T15:00:00.000Z',
     createdAtEpoch: 1791471600,
     connectionId: 'connection-1',
     domainName: 'example.com',
     stage: 'dev',
-  }, 'Sua mensagem foi recebida e o código será alterado depois.')
+  }, 'Obrigado pela mensagem! Como posso ajudar?')
 
   assert.equal(
     payload.content,
-    'Sua mensagem foi recebida e o código será alterado depois. Texto salvo: "Quero encontrar um SUV"',
+    'Obrigado pela mensagem! Como posso ajudar?',
   )
-  assert.equal(payload.savedMessage.content, 'Quero encontrar um SUV')
+  assert.equal(payload.savedMessage.content, 'Preciso de ajuda com uma dúvida')
 })

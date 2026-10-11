@@ -79,7 +79,7 @@ export function parseStoredMessage(value: Record<string, unknown>): StoredMessag
 export function receivedMessagePayload(message: StoredMessage, acknowledgement: string) {
   return {
     type: 'assistant.message',
-    content: `${acknowledgement} Texto salvo: "${message.content}"`,
+    content: acknowledgement,
     conversationId: message.conversationId,
     requestId: message.requestId || message.messageId,
     savedMessage: {
