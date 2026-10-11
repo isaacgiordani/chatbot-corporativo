@@ -55,6 +55,10 @@ aws cloudfront create-invalidation \
 
 O bucket é privado; o sync não habilita acesso público. O site é servido pela distribuição CloudFront com Origin Access Control. Não é necessário executar `npm run dev` para publicar.
 
+### Validar o chat publicado
+
+Depois do deploy da API WebSocket e da publicação do frontend, abra o domínio CloudFront, autentique-se e envie uma mensagem. O indicador deve mostrar **Conectado** e, por enquanto, o assistente responde com uma confirmação fixa informando que a mensagem foi salva. Isso valida a conexão autenticada, a persistência no DynamoDB, o processamento do stream e o retorno pelo WebSocket; ainda não valida uma integração com Bedrock, que não foi implementada.
+
 ### Resolver avisos de dependências
 
 Se `npm audit` apontar vulnerabilidades, consulte o relatório e tente primeiro a correção automática compatível com as versões declaradas:
@@ -87,7 +91,7 @@ As cinco Lambdas são pacotes de execução distintos, mas compartilham configur
 
 ```bash
 cd lambdas
-npm install
+npm ci
 npm run validate
 ```
 
@@ -101,4 +105,16 @@ lambdas/dist/message-processor/index.js
 lambdas/dist/authorizer/index.js
 ```
 
-Não existe template SAM neste repositório. O empacotamento das Lambdas é local; a implantação das funções e da API WebSocket é definida em `terraform/`. Consulte `lambdas/README.md` para o contrato, variáveis de ambiente e empacotamento, e `terraform/README.md` para o deploy da infraestrutura.
+Não existe template SAM neste repositório. O empacotamento das Lambdas é local; a implantação das funções, API WebSocket, tabelas DynamoDB e permissões IAM é definida em `terraform/`. A API usa as rotas `$connect`, `$disconnect`, `sendMessage` e `$default`; o stage acompanha a variável `env` do ambiente. As tabelas usam `connectionId` e `messageId` como partition keys, e o stream de mensagens aciona `message-processor`.
+
+Antes de aplicar a infraestrutura, gere os pacotes das Lambdas:
+
+```bash
+cd lambdas
+npm ci
+npm run package
+cd ../terraform
+./scripts/validate.sh
+```
+
+Revise o plano e aplique com `terraform apply -var-file=dev.tfvars`. Consulte `lambdas/README.md` para o contrato, variáveis de ambiente e empacotamento, e `terraform/README.md` para as etapas de state, validação, plano e deploy.

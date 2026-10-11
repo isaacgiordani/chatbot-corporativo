@@ -1,6 +1,6 @@
 # Terraform
 
-Esta configuração cria o bucket privado do site na região N. Virgínia (`us-east-1`), uma distribuição CloudFront chamada `chatbot-corporativo`, um Cognito User Pool, uma API Gateway WebSocket e cinco funções Lambda. Quatro funções atendem às rotas WebSocket; `message-processor` será conectada ao stream DynamoDB em uma etapa posterior. O nome do bucket é montado automaticamente como `<AccountId>-<env>-chatbot-corporativo-s3`, usando os valores de `dev.tfvars`; para o ambiente atual, será `651644924182-dev-chatbot-corporativo-s3`. O provider recusa credenciais de outra conta. O valor `VALCANN | TESTE` é mantido em `dev.tfvars`, mas a tag AWS converte `|` para `-` (`VALCANN - TESTE`) porque esse caractere não é aceito em tags por vários serviços AWS.
+Esta configuração cria o bucket privado do site na região N. Virgínia (`us-east-1`), uma distribuição CloudFront chamada `chatbot-corporativo`, um Cognito User Pool, uma API Gateway WebSocket, cinco funções Lambda e duas tabelas DynamoDB. Quatro funções atendem às rotas WebSocket; `message-processor` consome o stream da tabela de mensagens. O nome do bucket é montado automaticamente como `<AccountId>-<env>-chatbot-corporativo-s3`, usando os valores de `dev.tfvars`; para o ambiente atual, será `651644924182-dev-chatbot-corporativo-s3`. O provider recusa credenciais de outra conta. O valor `VALCANN | TESTE` é mantido em `dev.tfvars`, mas a tag AWS converte `|` para `-` (`VALCANN - TESTE`) porque esse caractere não é aceito em tags por vários serviços AWS.
 
 Os valores do ambiente de testes ficam em `dev.tfvars`. As credenciais temporárias ficam em `.env`, que é ignorado pelo Git. Na raiz do repositório, crie e preencha o arquivo local:
 
@@ -28,7 +28,7 @@ Se o state local do bootstrap for perdido, não aplique às cegas: importe o buc
 
 ## 2. Validar e planejar a infraestrutura principal
 
-Depois que o bucket de state existir, rode o script principal. Ele inicializa/migra o state remoto configurado em `dev.backend.hcl`, com lock nativo do Terraform no S3, e planeja o bucket do site:
+Depois que o bucket de state existir, rode o script principal. Ele inicializa/migra o state remoto configurado em `dev.backend.hcl`, com lock nativo do Terraform no S3, e planeja todos os recursos definidos para o ambiente:
 
 ```bash
 ./scripts/validate.sh
@@ -44,9 +44,9 @@ Se houver state local, confirme a migração quando o Terraform perguntar. O sta
 - Criptografia padrão SSE-S3 (`AES256`).
 - `force_destroy = false`, para impedir que o Terraform apague objetos ao destruir o bucket.
 
-## 3. Provisionar o bucket do site
+## 3. Aplicar a infraestrutura principal
 
-O provider aceita apenas a conta `AccountId` configurada. Revise o plano do site antes de provisionar:
+O provider aceita apenas a conta `AccountId` configurada. Revise o plano completo antes de provisionar ou atualizar recursos:
 
 ```bash
 terraform apply -var-file=dev.tfvars
@@ -83,7 +83,7 @@ Copie os valores para `VITE_COGNITO_USER_POOL_ID` e `VITE_COGNITO_USER_POOL_CLIE
 
 ## API Gateway WebSocket e Lambdas
 
-A API WebSocket `chatbot-corporativo` usa IPv4, stage `dev` e a expressão de seleção `$request.body.action` (a sintaxe do API Gateway inclui o `$`). As rotas `$connect`, `$disconnect`, `sendMessage` e `$default` são integradas às Lambdas. O authorizer Cognito protege `$connect` recebendo o token pela query string `token`. As cinco funções usam runtime Node.js 22.x e roles IAM separadas; o Terraform cria log groups com retenção de 14 dias.
+A API WebSocket `chatbot-corporativo` usa IPv4, o stage definido pela variável `env` e a expressão de seleção `$request.body.action` (a sintaxe do API Gateway inclui o `$`). Assim, `dev.tfvars` cria o stage `dev`, e cada arquivo de variáveis pode definir o stage correspondente ao próprio ambiente. As rotas `$connect`, `$disconnect`, `sendMessage` e `$default` são integradas às Lambdas. O authorizer Cognito protege `$connect` recebendo o token pela query string `token`. As cinco funções usam runtime Node.js 22.x e roles IAM separadas; o Terraform cria log groups com retenção de 14 dias.
 
 Antes do plano/aplicação, gere os bundles e ZIPs locais:
 
@@ -101,7 +101,11 @@ O `npm run package` transpila e empacota cada função em `lambdas/dist/<funçã
 terraform apply -var-file=dev.tfvars
 ```
 
-O Terraform implanta as cinco funções. `authorizer`, `connect`, `disconnect` e `message-persist` são conectadas à API; `message-processor` fica criada para receber o trigger DynamoDB Stream em uma etapa posterior. Como as tabelas ainda não foram provisionadas, as rotas que acessam DynamoDB não estarão operacionais até essa etapa.
+O Terraform implanta as cinco funções. `authorizer` valida a conexão em `$connect`; `connect` e `disconnect` atendem às rotas de ciclo de vida; `message-persist` atende `sendMessage` e `$default`; `message-processor` recebe os eventos do DynamoDB Stream. O stage usa o valor de `env` do arquivo tfvars (`dev` no ambiente atual).
+
+As tabelas são `valcann-dev-websocket-connections` (`connectionId` String como partition key, TTL em `expiresAt`) e `valcann-dev-websocket-messages` (`messageId` String como partition key, stream `NEW_IMAGE`). O Terraform também configura o mapeamento do stream para a Lambda `message-processor`. Ambas usam capacidade sob demanda e criptografia padrão do DynamoDB.
+
+As permissões de execução das Lambdas são separadas por função: todas escrevem logs apenas no próprio log group do CloudWatch; `authorizer` não recebe permissões adicionais; `connect` pode gravar na tabela de conexões; `disconnect` pode excluir itens dessa tabela; `message-persist` pode ler/excluir conexões e gravar mensagens, além de gerenciar conexões na API WebSocket para remover conexões inválidas; `message-processor` pode excluir conexões inválidas, ler o stream da tabela de mensagens e postar respostas na API WebSocket. As permissões do stream incluem `DescribeStream`, `GetRecords`, `GetShardIterator` e `ListStreams` e são limitadas ao stream da tabela de mensagens.
 
 Obtenha a URL WebSocket e configure `VITE_WEBSOCKET_URL` em `site/.env`:
 
@@ -112,6 +116,16 @@ nano .env
 ```
 
 Após salvar a URL, gere novamente o frontend e publique-o pelo fluxo acima para incorporar o endpoint no build.
+
+### Verificar o fluxo publicado
+
+Para consultar a URL ativa da API no ambiente configurado:
+
+```bash
+terraform output -raw websocket_api_url
+```
+
+Abra o domínio CloudFront, autentique-se e envie uma mensagem. O frontend deve indicar **Conectado** e receber a confirmação temporária do processador, com o texto enviado. Esse teste confirma a integração entre authorizer, rotas WebSocket, tabelas/stream do DynamoDB, Lambda processadora e API Gateway Management API. A resposta é fixa por enquanto; o Bedrock ainda não faz parte do fluxo implementado.
 
 ## Publicar o frontend
 

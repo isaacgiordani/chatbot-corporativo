@@ -1,7 +1,5 @@
 locals {
-  lambda_base_name       = "${var.client}-${var.env}-chatbot-corporativo"
-  connections_table_name = "${var.client}-${var.env}-websocket-connections"
-  messages_table_name    = "${var.client}-${var.env}-websocket-messages"
+  lambda_base_name = "${var.client}-${var.env}-chatbot-corporativo"
 
   lambda_functions = {
     authorizer = {
@@ -63,18 +61,29 @@ resource "aws_iam_role" "lambda" {
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
-  for_each = local.lambda_functions
-
-  role       = aws_iam_role.lambda[each.key].name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
 resource "aws_cloudwatch_log_group" "lambda" {
   for_each = local.lambda_functions
 
   name              = "/aws/lambda/${local.lambda_base_name}-${each.key}"
   retention_in_days = 14
+}
+
+resource "aws_iam_role_policy" "lambda_logs" {
+  for_each = local.lambda_functions
+
+  name = "${local.lambda_base_name}-${each.key}-cloudwatch-logs"
+  role = aws_iam_role.lambda[each.key].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Resource = "${aws_cloudwatch_log_group.lambda[each.key].arn}:*"
+    }]
+  })
 }
 
 resource "aws_lambda_function" "websocket" {
@@ -96,55 +105,9 @@ resource "aws_lambda_function" "websocket" {
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.lambda_basic_execution,
+    aws_iam_role_policy.lambda_logs,
     aws_cloudwatch_log_group.lambda,
   ]
-}
-
-resource "aws_iam_role_policy" "connect_dynamodb" {
-  name = "${local.lambda_base_name}-connect-dynamodb"
-  role = aws_iam_role.lambda["connect"].id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["dynamodb:PutItem"]
-      Resource = "arn:aws:dynamodb:${var.aws_region}:${var.AccountId}:table/${local.connections_table_name}"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "disconnect_dynamodb" {
-  name = "${local.lambda_base_name}-disconnect-dynamodb"
-  role = aws_iam_role.lambda["disconnect"].id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["dynamodb:DeleteItem"]
-      Resource = "arn:aws:dynamodb:${var.aws_region}:${var.AccountId}:table/${local.connections_table_name}"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "message_persist_dynamodb" {
-  name = "${local.lambda_base_name}-message-persist-dynamodb"
-  role = aws_iam_role.lambda["message-persist"].id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["dynamodb:GetItem", "dynamodb:DeleteItem"]
-        Resource = "arn:aws:dynamodb:${var.aws_region}:${var.AccountId}:table/${local.connections_table_name}"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["dynamodb:PutItem"]
-        Resource = "arn:aws:dynamodb:${var.aws_region}:${var.AccountId}:table/${local.messages_table_name}"
-      }
-    ]
-  })
 }
 
 resource "aws_iam_role_policy" "message_persist_manage_connections" {
@@ -156,19 +119,6 @@ resource "aws_iam_role_policy" "message_persist_manage_connections" {
       Effect   = "Allow"
       Action   = ["execute-api:ManageConnections"]
       Resource = "${aws_apigatewayv2_api.websocket.execution_arn}/${aws_apigatewayv2_stage.websocket.name}/POST/@connections/*"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "message_processor_dynamodb" {
-  name = "${local.lambda_base_name}-message-processor-dynamodb"
-  role = aws_iam_role.lambda["message-processor"].id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["dynamodb:DeleteItem"]
-      Resource = "arn:aws:dynamodb:${var.aws_region}:${var.AccountId}:table/${local.connections_table_name}"
     }]
   })
 }

@@ -12,9 +12,11 @@ As funções estão organizadas como cinco unidades distintas:
 
 O processador ainda não chama o Bedrock. Por enquanto, consome registros `INSERT` do stream e devolve uma confirmação contendo o texto persistido.
 
+O fluxo foi validado no site publicado: após autenticar e enviar uma mensagem, a interface recebe a resposta fixa do processador. A validação cobre a conexão WebSocket, o salvamento da mensagem, o acionamento pelo DynamoDB Stream e o callback para o cliente; a resposta ainda não é gerada por um modelo de IA.
+
 ## Variáveis de ambiente
 
-Use `.env.example` como referência ao configurar cada Lambda na infraestrutura futuramente.
+Use `.env.example` como referência. O Terraform define essas variáveis em cada Lambda durante o deploy.
 
 | Variável | Obrigatória | Uso |
 | --- | --- | --- |
@@ -27,14 +29,14 @@ Use `.env.example` como referência ao configurar cada Lambda na infraestrutura 
 | `COGNITO_USER_POOL_CLIENT_ID` | Authorizer | ID do App Client público |
 | `AUTH_TOKEN_QUERY_PARAM` | Não | Nome do parâmetro de token para navegadores; padrão `token` |
 
-O nome da tabela não está fixado no código. Por exemplo:
+Os nomes das tabelas são definidos por variáveis de ambiente e provisionados pelo Terraform. No ambiente `dev`:
 
 ```text
 CONNECTIONS_TABLE=valcann-dev-websocket-connections
 MESSAGES_TABLE=valcann-dev-websocket-messages
 ```
 
-A tabela futura deve utilizar `connectionId` como chave primária e habilitar TTL no atributo `expiresAt`. O evento `$disconnect` é entregue em regime de melhor esforço pelo API Gateway; por isso o TTL serve como limpeza de segurança para conexões antigas.
+A tabela `valcann-dev-websocket-connections` usa `connectionId` como partition key e TTL no atributo `expiresAt`. A tabela `valcann-dev-websocket-messages` usa `messageId` como partition key e mantém DynamoDB Stream com imagem `NEW_IMAGE`. O evento `$disconnect` é entregue em regime de melhor esforço pelo API Gateway; por isso o TTL serve como limpeza de segurança para conexões antigas.
 
 ## Build e testes
 
@@ -70,7 +72,7 @@ npm run package
 
 O Terraform usa `dist/authorizer.zip`, `dist/connect.zip`, `dist/disconnect.zip`, `dist/message-persist.zip` e `dist/message-processor.zip` para criar/atualizar as funções. Os source maps `.map` não são incluídos nos pacotes de deploy; o JavaScript já contém as dependências empacotadas. Execute `npm run package` novamente após mudanças no código antes de planejar/aplicar o Terraform.
 
-O deploy Terraform cria o API Gateway WebSocket e conecta `authorizer`, `connect`, `disconnect` e `message-persist`. `message-processor` também é criado, mas o trigger do DynamoDB Stream será configurado quando as tabelas DynamoDB forem criadas.
+O deploy Terraform cria as cinco funções, conecta `connect` e `disconnect` às respectivas rotas WebSocket, usa `message-persist` em `sendMessage` e `$default`, e configura `authorizer` em `$connect`. Também cria as duas tabelas DynamoDB e o mapeamento do stream de mensagens para `message-processor`.
 
 Para compilar apenas uma função:
 
@@ -158,28 +160,27 @@ React WebSocket
   -> React WebSocket
 ```
 
-A tabela de mensagens deve ter:
+A tabela de mensagens usa `messageId` como partition key String e DynamoDB Stream com a visualização **New image**. `conversationId` e `messageKey` permanecem como atributos normais. `messageKey` contém data ISO e UUID, mas, sem um índice secundário por conversa, o modelo atual não permite consultar eficientemente todas as mensagens pelo `conversationId`. Para histórico de conversa, será necessário definir um GSI apropriado.
 
-- partition key `conversationId` do tipo String;
-- sort key `messageKey` do tipo String;
-- DynamoDB Stream habilitado com a visualização **New image**.
-
-O `messageKey` combina data ISO e UUID, permitindo ordenar as mensagens de uma conversa cronologicamente. Cada item também guarda `messageId`, `content`, `role`, `status`, `connectionId`, `domainName`, `stage`, `userId` e datas de criação.
+O atributo `messageKey` combina data ISO e UUID, permitindo ordenar as mensagens de uma conversa cronologicamente quando consultadas por um índice apropriado. Cada item também guarda `conversationId`, `messageKey`, `content`, `role`, `status`, `connectionId`, `domainName`, `stage`, `userId` e datas de criação.
 
 O processador implementa resposta parcial de lote (`ReportBatchItemFailures`). O consumo do DynamoDB Stream é pelo menos uma vez, então uma futura versão de produção ainda deverá considerar idempotência para evitar respostas duplicadas em cenários de retry.
 
-## Configuração manual no console da AWS
+## Configuração manual alternativa
 
-### 1. Criar a tabela de mensagens
+As instruções desta seção são apenas para uma implantação inteiramente manual, sem Terraform. Para os recursos gerenciados neste repositório, use o fluxo de deploy em `terraform/README.md` e não crie os mesmos recursos pelo console.
+
+### 1. Criar as tabelas manualmente (somente se não usar Terraform)
+
+Na tabela `valcann-dev-websocket-connections`, use `connectionId` (String) como partition key e habilite TTL em `expiresAt`.
 
 No DynamoDB, escolha **Create table**:
 
 - Table name: por exemplo `valcann-dev-websocket-messages`;
-- Partition key: `conversationId`, tipo String;
-- Sort key: `messageKey`, tipo String;
+- Partition key: `messageId`, tipo String;
 - Table settings: `On-demand` é suficiente para o início.
 
-Depois abra **Exports and streams → DynamoDB stream details → Turn on** e escolha **New image**.
+Habilite DynamoDB Stream com visualização **New image** na tabela de mensagens. Normalmente, deixe o Terraform criar e conectar as tabelas; não as crie manualmente junto com recursos gerenciados pelo Terraform.
 
 ### 2. Configurar a message-persist
 
@@ -194,12 +195,11 @@ zip ../message-persist.zip index.js index.js.map
 
 Na Lambda use Node.js 22.x, handler `index.handler` e as variáveis `CONNECTIONS_TABLE`, `MESSAGES_TABLE` e, se necessário, `WEBSOCKET_CALLBACK_ENDPOINT`.
 
-Na role conceda:
+Na role conceda somente:
 
-- `dynamodb:GetItem` na tabela de conexões;
+- `dynamodb:GetItem` e `dynamodb:DeleteItem` na tabela de conexões;
 - `dynamodb:PutItem` na tabela de mensagens;
-- `dynamodb:DeleteItem` na tabela de conexões;
-- `execute-api:ManageConnections` na API WebSocket.
+- `execute-api:ManageConnections` na rota `POST/@connections/*` da API WebSocket, usada para remover conexões inválidas.
 
 No API Gateway, altere as integrações das rotas `sendMessage` e `$default` para `message-persist` e faça deploy do stage.
 
@@ -216,14 +216,14 @@ zip ../message-processor.zip index.js index.js.map
 
 Na processadora configure `CONNECTIONS_TABLE`, `FIXED_RESPONSE` e, se necessário, `WEBSOCKET_CALLBACK_ENDPOINT`. Remova qualquer integração direta dela com as rotas `sendMessage` e `$default`.
 
-Na role, anexe `AWSLambdaDynamoDBExecutionRole` para leitura do stream e acrescente permissões para `execute-api:ManageConnections` e `dynamodb:DeleteItem` na tabela de conexões.
+Na role conceda `dynamodb:DescribeStream`, `dynamodb:GetRecords`, `dynamodb:GetShardIterator` e `dynamodb:ListStreams` no stream da tabela de mensagens, `dynamodb:DeleteItem` na tabela de conexões e `execute-api:ManageConnections` na rota `POST/@connections/*` da API WebSocket. O Terraform limita essas permissões aos ARNs específicos; evite anexar políticas amplas quando configurar manualmente.
 
 Na página da Lambda processadora, escolha **Add trigger → DynamoDB**:
 
 - DynamoDB table: `valcann-dev-websocket-messages`;
 - Batch size: `10`;
 - Batch window: `0`;
-- Starting position: `Trim horizon` se a tabela for nova e vazia; caso use `Latest`, não grave mensagens até o trigger aparecer como habilitado;
+- Starting position: `Latest` (configurado pelo Terraform);
 - Split batch on error: habilitado;
 - Retry attempts: `3`;
 - Maximum age of record: `3600` segundos;
@@ -239,12 +239,13 @@ O DynamoDB funciona como registro das conexões ativas, mas apagar um item da ta
 
 A mensagem que disparou a recuperação não é reenviada automaticamente; o usuário deve enviá-la novamente depois que o indicador mostrar que a conexão foi restabelecida.
 
-## Permissões futuras mínimas
+## Permissões configuradas no Terraform
 
-- `connect`: `dynamodb:PutItem` na tabela de conexões;
-- `disconnect`: `dynamodb:DeleteItem` na tabela;
-- `message-persist`: `dynamodb:GetItem`, `dynamodb:PutItem`, `dynamodb:DeleteItem` e `execute-api:ManageConnections` nos recursos necessários;
-- `message-processor`: leitura do DynamoDB Stream, `dynamodb:DeleteItem` na tabela de conexões e `execute-api:ManageConnections` restrito à API e ao stage;
-- `authorizer`: logs no CloudWatch; nenhuma permissão de leitura no Cognito é necessária para verificar o JWT.
+- Todas as funções escrevem logs apenas no próprio log group do CloudWatch.
+- `connect`: `dynamodb:PutItem` na tabela de conexões.
+- `disconnect`: `dynamodb:DeleteItem` na tabela de conexões.
+- `message-persist`: `dynamodb:GetItem` e `dynamodb:DeleteItem` na tabela de conexões, `dynamodb:PutItem` na tabela de mensagens e `execute-api:ManageConnections` para remover conexões inválidas.
+- `message-processor`: `dynamodb:DeleteItem` na tabela de conexões; `dynamodb:DescribeStream`, `GetRecords`, `GetShardIterator` e `ListStreams` no stream de mensagens; `execute-api:ManageConnections` para enviar respostas.
+- `authorizer`: somente logs no CloudWatch além da confiança para execução da Lambda; nenhuma permissão IAM de leitura do Cognito é necessária para verificar o JWT.
 
 Quando o Bedrock for integrado, adicione somente as permissões necessárias ao modelo escolhido.
