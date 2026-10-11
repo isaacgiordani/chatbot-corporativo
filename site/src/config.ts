@@ -6,7 +6,7 @@ const websocketUrl = import.meta.env.VITE_WEBSOCKET_URL?.trim() || ''
 const cognitoConfigured = Boolean(userPoolId && userPoolClientId)
 
 export const appConfig = {
-  name: import.meta.env.VITE_APP_NAME?.trim() || 'AutoAtende',
+  name: import.meta.env.VITE_APP_NAME?.trim() || 'Valcann',
   demoEnabled: import.meta.env.VITE_ENABLE_DEMO_MODE !== 'false',
   cognito: {
     isConfigured: cognitoConfigured,

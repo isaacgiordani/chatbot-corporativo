@@ -1,4 +1,4 @@
-# Lambdas WebSocket do AutoAtende
+# Lambdas WebSocket da Valcann
 
 As funções estão organizadas como cinco unidades distintas:
 
@@ -30,8 +30,8 @@ Use `.env.example` como referência ao configurar cada Lambda na infraestrutura 
 O nome da tabela não está fixado no código. Por exemplo:
 
 ```text
-CONNECTIONS_TABLE=autoatende-dev-websocket-connections
-MESSAGES_TABLE=autoatende-dev-messages
+CONNECTIONS_TABLE=valcann-dev-websocket-connections
+MESSAGES_TABLE=valcann-dev-messages
 ```
 
 A tabela futura deve utilizar `connectionId` como chave primária e habilitar TTL no atributo `expiresAt`. O evento `$disconnect` é entregue em regime de melhor esforço pelo API Gateway; por isso o TTL serve como limpeza de segurança para conexões antigas.
@@ -160,7 +160,7 @@ O processador implementa resposta parcial de lote (`ReportBatchItemFailures`). O
 
 No DynamoDB, escolha **Create table**:
 
-- Table name: por exemplo `autoatende-dev-messages`;
+- Table name: por exemplo `valcann-dev-messages`;
 - Partition key: `conversationId`, tipo String;
 - Sort key: `messageKey`, tipo String;
 - Table settings: `On-demand` é suficiente para o início.
@@ -206,7 +206,7 @@ Na role, anexe `AWSLambdaDynamoDBExecutionRole` para leitura do stream e acresce
 
 Na página da Lambda processadora, escolha **Add trigger → DynamoDB**:
 
-- DynamoDB table: `autoatende-dev-messages`;
+- DynamoDB table: `valcann-dev-messages`;
 - Batch size: `10`;
 - Batch window: `0`;
 - Starting position: `Trim horizon` se a tabela for nova e vazia; caso use `Latest`, não grave mensagens até o trigger aparecer como habilitado;

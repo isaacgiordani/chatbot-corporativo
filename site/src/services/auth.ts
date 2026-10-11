@@ -17,8 +17,8 @@ export interface AppUser {
   name?: string
 }
 
-const TEMPORARY_SESSION_KEY = 'autoatende:temporary-session'
-const ACTIVE_TAB_KEY = 'autoatende:active-tab'
+const TEMPORARY_SESSION_KEY = 'valcann:temporary-session'
+const ACTIVE_TAB_KEY = 'valcann:active-tab'
 
 function userFromToken(userId: string, fallbackEmail: string, payload?: Record<string, unknown>): AppUser {
   return {
