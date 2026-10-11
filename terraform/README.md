@@ -1,6 +1,6 @@
 # Terraform
 
-Esta configuração cria o bucket privado do site na região N. Virgínia (`us-east-1`) e uma distribuição CloudFront chamada `chatbot-corporativo`. O nome do bucket é montado automaticamente como `<AccountId>-<env>-chatbot-corporativo-s3`, usando os valores de `dev.tfvars`; para o ambiente atual, será `651644924182-dev-chatbot-corporativo-s3`. O provider recusa credenciais de outra conta. O valor `VALCANN | TESTE` é mantido em `dev.tfvars`, mas a tag AWS converte `|` para `-` (`VALCANN - TESTE`) porque esse caractere não é aceito em tags por vários serviços AWS.
+Esta configuração cria o bucket privado do site na região N. Virgínia (`us-east-1`), uma distribuição CloudFront chamada `chatbot-corporativo` e um Cognito User Pool com App Client público para a SPA. O nome do bucket é montado automaticamente como `<AccountId>-<env>-chatbot-corporativo-s3`, usando os valores de `dev.tfvars`; para o ambiente atual, será `651644924182-dev-chatbot-corporativo-s3`. O provider recusa credenciais de outra conta. O valor `VALCANN | TESTE` é mantido em `dev.tfvars`, mas a tag AWS converte `|` para `-` (`VALCANN - TESTE`) porque esse caractere não é aceito em tags por vários serviços AWS.
 
 Os valores do ambiente de testes ficam em `dev.tfvars`. As credenciais temporárias ficam em `.env`, que é ignorado pelo Git. Na raiz do repositório, crie e preencha o arquivo local:
 
@@ -65,21 +65,39 @@ terraform output -raw cloudfront_distribution_domain_name
 terraform output -raw cloudfront_distribution_id
 ```
 
+## Cognito para a SPA
+
+O User Pool e o App Client têm o nome `chatbot-corporativo`. O pool permite cadastro público, usa `username` como identificador (o frontend preenche esse username com o e-mail informado), e exige os atributos `email` e `name`. O e-mail é verificado automaticamente. O App Client é público, sem client secret, e usa o fluxo OAuth de código com `http://localhost:5173/` como callback e URL de logout.
+
+Depois de aplicar, obtenha os valores para configurar `site/.env`:
+
+```bash
+terraform output -raw cognito_user_pool_id
+terraform output -raw cognito_user_pool_client_id
+cd ../site
+nano .env
+cd ../terraform
+```
+
+Copie os valores para `VITE_COGNITO_USER_POOL_ID` e `VITE_COGNITO_USER_POOL_CLIENT_ID` em `site/.env`; a região está configurada como `us-east-1`. O arquivo `site/.env.example` mantém esses IDs vazios para não apontar para um pool diferente. Para desenvolvimento local, `npm run dev` inicia o Vite e não publica na AWS; reinicie-o depois de alterar o `.env`.
+
 ## Publicar o frontend
 
-Para enviar um build já gerado, configure as credenciais AWS no terminal, volte à raiz do repositório e execute:
+Para publicar alterações, configure as credenciais AWS no terminal e gere o build com os valores atuais de `site/.env`:
 
 ```bash
 cd ../site
-./scripts/sync-s3.sh 651644924182 dev
-```
-
-O script sincroniza `site/dist/` com `651644924182-dev-chatbot-corporativo-s3`. Ele não gera o build e não apaga arquivos do bucket. Se `dist/` não existir, gere o build antes:
-
-```bash
-npm ci
 npm run build
 ./scripts/sync-s3.sh 651644924182 dev
 ```
 
-Como alternativa, `npm run deploy:s3` gera o build e publica usando a variável `AWS_S3_BUCKET`; esse fluxo aplica regras de cache e pode invalidar o CloudFront se `AWS_CLOUDFRONT_DISTRIBUTION_ID` estiver definida. O bucket do site continua privado. Para servir o frontend aos usuários, configure CloudFront com Origin Access Control.
+O script envia `site/dist/` para `651644924182-dev-chatbot-corporativo-s3`, não gera o build nem apaga arquivos do bucket, e solicita automaticamente a invalidação `/*` do CloudFront. Ele obtém a distribuição pelo output Terraform `cloudfront_distribution_id`; alternativamente, defina `AWS_CLOUDFRONT_DISTRIBUTION_ID`. As credenciais AWS precisam permitir escrita no bucket e criação de invalidações. A invalidação é assíncrona e pode levar alguns minutos. O comando manual abaixo serve para solicitar outra invalidação, se necessário:
+
+```bash
+cd ../terraform
+aws cloudfront create-invalidation \
+  --distribution-id "$(terraform output -raw cloudfront_distribution_id)" \
+  --paths "/*"
+```
+
+Como alternativa, `npm run deploy:s3` gera o build e publica usando a variável `AWS_S3_BUCKET`; esse fluxo aplica regras de cache e pode invalidar o CloudFront se `AWS_CLOUDFRONT_DISTRIBUTION_ID` estiver definida. O bucket continua privado e acessível pelo CloudFront via OAC. Não é necessário executar `npm run dev` para publicar.

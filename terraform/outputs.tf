@@ -17,3 +17,18 @@ output "cloudfront_distribution_domain_name" {
   description = "Domínio padrão da distribuição CloudFront."
   value       = aws_cloudfront_distribution.site.domain_name
 }
+
+output "cognito_user_pool_id" {
+  description = "ID do Cognito User Pool do site."
+  value       = aws_cognito_user_pool.site.id
+}
+
+output "cognito_user_pool_arn" {
+  description = "ARN do Cognito User Pool do site."
+  value       = aws_cognito_user_pool.site.arn
+}
+
+output "cognito_user_pool_client_id" {
+  description = "ID público do App Client Cognito usado pela SPA."
+  value       = aws_cognito_user_pool_client.site_spa.id
+}
